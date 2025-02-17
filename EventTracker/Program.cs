@@ -12,6 +12,12 @@ using UMenagmentService.Service;
 
 
 var builder = WebApplication.CreateBuilder(args);
+ 
+//Add Config for Required Email
+builder.Services.Configure<IdentityOptions>(
+    opts => opts.SignIn.RequireConfirmedEmail = true
+    );
+
 
 // For Entity Framework
 var configuration = builder.Configuration;
@@ -33,6 +39,8 @@ builder.Services.AddAuthentication(options =>
 
 
 // Add services to the container.
+
+//Email configuration
 
 var emailConfig = configuration.GetSection("EmailConfiguration").Get<EmailConfiguration>();
 builder.Services.AddSingleton(emailConfig);

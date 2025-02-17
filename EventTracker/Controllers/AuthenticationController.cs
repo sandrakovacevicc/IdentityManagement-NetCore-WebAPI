@@ -65,8 +65,13 @@ namespace EventTracker.Controllers
 
             await _userManager.AddToRoleAsync(user, "Client");
 
+            var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+            var confirmationLink = Url.Action(nameof(ConfirmEmail), "Authentication", new { token, email = user.Email }, Request.Scheme);
+            var message = new Message(new string[] { user.Email! }, "Confirmation email link", confirmationLink!);
+            _emailService.SendEmail(message);
+
             return StatusCode(StatusCodes.Status201Created,
-                new Response { Status = "Success", Message = "User registered successfully! Please login!" });
+                new Response { Status = "Success", Message = $"User registered & Email Sent to {user.Email} successfully! Please login!" });
         }
 
         [HttpGet]
@@ -80,8 +85,26 @@ namespace EventTracker.Controllers
             });
 
         }
+
+        [HttpGet("ConfirmEmail")]
+        public async Task<IActionResult> ConfirmEmail(string token, string email)
+        {
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user != null)
+            {
+                var result = await _userManager.ConfirmEmailAsync(user, token);
+                if (result.Succeeded)
+                {
+                    return StatusCode(StatusCodes.Status200OK,
+                      new Response { Status = "Success", Message = "Email Verified Successfully" });
+                }
+            }
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                       new Response { Status = "Error", Message = "This User Doesnt exist!" });
+        }
+
     }
 
-       
+
 }
 
