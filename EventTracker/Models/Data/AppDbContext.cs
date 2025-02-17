@@ -24,6 +24,7 @@ namespace EventTracker.Models.Data
                 new IdentityRole() { Name = "Admin", ConcurrencyStamp = "1", NormalizedName = "Admin" },
                 new IdentityRole() { Name = "Client", ConcurrencyStamp = "2", NormalizedName = "Client" }
                 );
+           
         }
     }
 }

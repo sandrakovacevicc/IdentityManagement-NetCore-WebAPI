@@ -5,6 +5,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using UMenagmentService.Models;
+using UMenagmentService.Service;
+
+
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,7 +34,13 @@ builder.Services.AddAuthentication(options =>
 
 // Add services to the container.
 
+var emailConfig = configuration.GetSection("EmailConfiguration").Get<EmailConfiguration>();
+builder.Services.AddSingleton(emailConfig);
+
+builder.Services.AddScoped<IEmailService, EmailService>();
+
 builder.Services.AddControllers();
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

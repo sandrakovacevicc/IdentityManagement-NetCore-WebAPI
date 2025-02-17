@@ -1,8 +1,10 @@
 ﻿using EventTracker.Models;
 using EventTracker.Models.Authentication.Register;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
+using UMenagmentService.Models;
+using UMenagmentService.Service;
+
 
 namespace EventTracker.Controllers
 {
@@ -13,19 +15,21 @@ namespace EventTracker.Controllers
         private readonly UserManager<IdentityUser> _userManager;
         private readonly SignInManager<IdentityUser> _signInManager;
         private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly IEmailService _emailService;
         private readonly IConfiguration _configuration;
 
         public AuthenticationController(UserManager<IdentityUser> userManager,
-            SignInManager<IdentityUser> signInManager, IConfiguration configuration, RoleManager<IdentityRole> roleManager)
+            SignInManager<IdentityUser> signInManager, IConfiguration configuration, RoleManager<IdentityRole> roleManager, IEmailService emailService)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _configuration = configuration;
             _roleManager = roleManager;
+            _emailService = emailService;
         }
 
         [HttpPost]
-        public async Task<IActionResult> Register([FromBody]RegisterUser registerRequest)
+        public async Task<IActionResult> Register([FromBody] RegisterUser registerRequest)
         {
 
             var userExist = await _userManager.FindByEmailAsync(registerRequest.Email);
@@ -45,8 +49,8 @@ namespace EventTracker.Controllers
                 TwoFactorEnabled = true,
                 SecurityStamp = Guid.NewGuid().ToString(),
             };
-           
-                var result = await _userManager.CreateAsync(user, registerRequest.Password);
+
+            var result = await _userManager.CreateAsync(user, registerRequest.Password);
 
             if (!result.Succeeded)
             {
@@ -65,8 +69,19 @@ namespace EventTracker.Controllers
                 new Response { Status = "Success", Message = "User registered successfully! Please login!" });
         }
 
+        [HttpGet]
+        public IActionResult TestEmail()
+        {
+            var mess = new Message(new string[] { "kovacevicsof@gmail.com" }, "Uspeh", "Uspela sam");
+            _emailService.SendEmail(mess);
+            return StatusCode(StatusCodes.Status200OK, new Response
+            {
+                Status = "Success", Message = "Email sent successfully"
+            });
+
+        }
     }
 
        
-    }
+}
 
