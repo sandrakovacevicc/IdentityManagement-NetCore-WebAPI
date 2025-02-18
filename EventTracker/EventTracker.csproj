@@ -18,10 +18,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Models\Authentication\Login\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\UMenagmentService\UMenagmentService.csproj" />
     <ProjectReference Include="..\User.Menagment.Service\Menagment.Service.csproj" />
   </ItemGroup>

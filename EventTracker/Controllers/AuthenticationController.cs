@@ -1,7 +1,12 @@
 ﻿using EventTracker.Models;
+using EventTracker.Models.Authentication.Login;
 using EventTracker.Models.Authentication.Register;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 using UMenagmentService.Models;
 using UMenagmentService.Service;
 
@@ -29,6 +34,7 @@ namespace EventTracker.Controllers
         }
 
         [HttpPost]
+        [Route("register")]
         public async Task<IActionResult> Register([FromBody] RegisterUser registerRequest)
         {
 
@@ -74,19 +80,19 @@ namespace EventTracker.Controllers
                 new Response { Status = "Success", Message = $"User registered & Email Sent to {user.Email} successfully! Please login!" });
         }
 
-        [HttpGet]
-        public IActionResult TestEmail()
-        {
-            var mess = new Message(new string[] { "kovacevicsof@gmail.com" }, "Uspeh", "Uspela sam");
-            _emailService.SendEmail(mess);
-            return StatusCode(StatusCodes.Status200OK, new Response
-            {
-                Status = "Success", Message = "Email sent successfully"
-            });
+        //[HttpGet]
+        //public IActionResult TestEmail()
+        //{
+        //    var mess = new Message(new string[] { "kovacevicsof@gmail.com" }, "Uspeh", "Uspela sam");
+        //    _emailService.SendEmail(mess);
+        //    return StatusCode(StatusCodes.Status200OK, new Response
+        //    {
+        //        Status = "Success", Message = "Email sent successfully"
+        //    });
 
-        }
+        //}
 
-        [HttpGet("ConfirmEmail")]
+        [HttpGet("confirm-email")]
         public async Task<IActionResult> ConfirmEmail(string token, string email)
         {
             var user = await _userManager.FindByEmailAsync(email);
@@ -101,6 +107,103 @@ namespace EventTracker.Controllers
             }
             return StatusCode(StatusCodes.Status500InternalServerError,
                        new Response { Status = "Error", Message = "This User Doesnt exist!" });
+        }
+
+
+        [HttpPost]
+        [Route("login")]
+        public async Task<IActionResult> Login([FromBody] LoginUser loginUser)
+        {
+            var user = await _userManager.FindByEmailAsync(loginUser.Email);
+            if (user.TwoFactorEnabled)
+            {
+                await _signInManager.SignOutAsync();
+                await _signInManager.PasswordSignInAsync(user, loginUser.Password, false, true);
+                var token = await _userManager.GenerateTwoFactorTokenAsync(user, "Email");
+
+                var message = new Message(new string[] { user.Email! }, "OTP Confrimation", token);
+                _emailService.SendEmail(message);
+
+                return StatusCode(StatusCodes.Status200OK,
+                 new Response { Status = "Success", Message = $"We have sent an OTP to your Email {user.Email}" });
+            }
+
+            if (user != null && await _userManager.CheckPasswordAsync(user, loginUser.Password))
+            {
+                var authClaims = new List<Claim>
+                {
+                    new Claim(ClaimTypes.Name, user.UserName),
+                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                };
+                var userRoles = await _userManager.GetRolesAsync(user);
+                foreach (var role in userRoles)
+                {
+                    authClaims.Add(new Claim(ClaimTypes.Role, role));
+                }
+
+
+                var jwtToken = GetToken(authClaims);
+
+                return Ok(new
+                {
+                    token = new JwtSecurityTokenHandler().WriteToken(jwtToken),
+                    expiration = jwtToken.ValidTo
+                });
+
+            }
+            return Unauthorized();
+
+
+        }
+
+        [HttpPost]
+        [Route("login-2FA")]
+        public async Task<IActionResult> LoginWithOTP(string code, string username)
+        {
+            var user = await _userManager.FindByNameAsync(username);
+            var signIn = await _signInManager.TwoFactorSignInAsync("Email", code, false, false);
+            if (signIn.Succeeded)
+            {
+                if (user != null)
+                {
+                    var authClaims = new List<Claim>
+                {
+                    new Claim(ClaimTypes.Name, user.UserName),
+                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                };
+                    var userRoles = await _userManager.GetRolesAsync(user);
+                    foreach (var role in userRoles)
+                    {
+                        authClaims.Add(new Claim(ClaimTypes.Role, role));
+                    }
+
+                    var jwtToken = GetToken(authClaims);
+
+                    return Ok(new
+                    {
+                        token = new JwtSecurityTokenHandler().WriteToken(jwtToken),
+                        expiration = jwtToken.ValidTo
+                    });
+
+                }
+            }
+            return StatusCode(StatusCodes.Status404NotFound,
+                new Response { Status = "Success", Message = $"Invalid Code" });
+        }
+
+        private JwtSecurityToken GetToken(List<Claim> authClaims)
+        {
+            var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JWT:Secret"]));
+
+            var token = new JwtSecurityToken(
+                issuer: _configuration["JWT:ValidIssuer"],
+                audience: _configuration["JWT:ValidAudience"],
+                expires: DateTime.Now.AddDays(2),
+                claims: authClaims,
+                signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
+                );
+
+            return token;
         }
 
     }
