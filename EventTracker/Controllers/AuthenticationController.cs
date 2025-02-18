@@ -153,7 +153,6 @@ namespace EventTracker.Controllers
             }
             return Unauthorized();
 
-
         }
 
         [HttpPost]
