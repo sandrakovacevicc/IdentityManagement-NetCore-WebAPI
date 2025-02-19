@@ -1,9 +1,12 @@
 ﻿using EventTracker.Models;
 using EventTracker.Models.Authentication.Login;
 using EventTracker.Models.Authentication.Register;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
+using System.ComponentModel.DataAnnotations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -189,6 +192,64 @@ namespace EventTracker.Controllers
             return StatusCode(StatusCodes.Status404NotFound,
                 new Response { Status = "Success", Message = $"Invalid Code" });
         }
+
+        [HttpPost]
+        [AllowAnonymous]
+        [Route("forgot-pass")]
+        public async Task<IActionResult> ForgotPassword([Required]string email)
+        {
+            var user = await _userManager.FindByNameAsync(email);
+            if (user != null)
+            {
+                var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+                var forgotPassLink = Url.Action("ResetPassword", "Authentication", new { token, email = user.Email }, Request.Scheme);
+                var message = new Message(new string[] { user.Email! }, "Forgot Password link", forgotPassLink!);
+                _emailService.SendEmail(message);
+                return StatusCode(StatusCodes.Status200OK,
+                 new Response { Status = "Success", Message = $"Password Changed link is sent to " +
+                 $"{user.Email}. Please verify" });
+            }
+            return StatusCode(StatusCodes.Status400BadRequest,
+                 new Response { Status = "Error", Message = $"Couldnt sent link. Please try again." });
+
+        }
+
+        [HttpGet("reset-pass")]
+        public async Task<IActionResult> ResetPassword(string token, string email)
+        {
+            var model = new ResetPassword {Token = token, Email = email };
+           
+            return Ok( new{
+               model
+            });
+        }
+
+        [HttpPost]
+        [AllowAnonymous]
+        [Route("reset-pass")]
+        public async Task<IActionResult> ResetPassword(ResetPassword resetPassword)
+        {
+            var user = await _userManager.FindByNameAsync(resetPassword.Email);
+            if (user != null)
+            {
+                var resetPass = await _userManager.ResetPasswordAsync(user, resetPassword.Token, resetPassword.Password);
+                if (!resetPass.Succeeded)
+                {
+                    foreach (var error in resetPass.Errors)
+                    {
+                        ModelState.AddModelError(error.Code, error.Description);
+                    }
+                    return Ok(ModelState);
+                }
+                return StatusCode(StatusCodes.Status200OK,
+                     new Response { Status = "Success", Message = "Password has been changed!" });
+
+            }
+            return StatusCode(StatusCodes.Status400BadRequest,
+                     new Response { Status = "Error", Message = $"Couldnt sent link. Please try again." });
+        }
+
+
 
         private JwtSecurityToken GetToken(List<Claim> authClaims)
         {

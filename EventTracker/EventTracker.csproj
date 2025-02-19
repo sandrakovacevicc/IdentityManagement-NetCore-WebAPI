@@ -19,7 +19,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\UMenagmentService\UMenagmentService.csproj" />
-    <ProjectReference Include="..\User.Menagment.Service\Menagment.Service.csproj" />
   </ItemGroup>
 
 </Project>
