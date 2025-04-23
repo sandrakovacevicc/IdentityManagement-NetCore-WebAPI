@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Identity;
 
 
-namespace UMenagmentService.Models
+namespace EventTracker.Models
 {
     public class User : IdentityUser
     {

@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace UMenagmentService.Models.Authentication.Register
+namespace EventTracker.Models.Authentication.Register
 {
     public class RegisterUser
     {
