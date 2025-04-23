@@ -12,7 +12,7 @@ namespace EventTracker.Controllers
         [HttpGet("employees")]
         public IEnumerable<string> Get()
         {
-            return new List<string> { "Ahmed", "Ali", "Ahsan" };
+            return new List<string> { "Iva", "Sandra", "Dunja" };
         }
     }
 }
