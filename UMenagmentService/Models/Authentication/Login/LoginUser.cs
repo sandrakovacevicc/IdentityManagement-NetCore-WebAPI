@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace EventTracker.Models.Authentication.Login
+namespace UMenagmentService.Models.Authentication.Login
 {
     public class LoginUser
     {
