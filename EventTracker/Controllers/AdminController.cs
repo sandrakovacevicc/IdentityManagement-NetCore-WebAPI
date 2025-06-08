@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
-namespace EventTracker.Controllers
+namespace UserManagement.API.Controllers
 {
     [Authorize(Roles = "Client")]
     [Route("api/[controller]")]

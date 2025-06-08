@@ -1,4 +1,4 @@
-﻿namespace UMenagmentService.Models
+﻿namespace UserManagment.Service.Models
 {
     public class ApiResponse<T>
     {

@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using UMenagmentService.Models;
+using UserManagment.Service.Models;
 
-namespace UMenagmentService.Service
+namespace UserManagment.Service.Service
 {
     public interface IEmailService
     {

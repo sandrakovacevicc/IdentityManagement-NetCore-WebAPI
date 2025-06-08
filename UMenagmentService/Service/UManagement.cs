@@ -1,25 +1,26 @@
 ﻿using Microsoft.AspNetCore.Identity;
-using UMenagmentService.Models;
-using UMenagmentService.Models.Authentication.Register;
 using Microsoft.Extensions.Configuration;
-using UMenagmentService.Models.Authentication.Login;
-using UMenagmentService.Models.Authentication;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using UserManagment.Service.Models.Authentication.User;
+using UserManagment.Service.Models.Authentication.Login;
+using UserManagment.Service.Models.Authentication.Register;
+using UserManagment.Service.Models;
+using UserManagement.Data.Models;
 
-namespace UMenagmentService.Service
+namespace UserManagment.Service.Service
 {
-    public class UserManagement : IUserManagement
+    public class UManagement : IUManagement
     {
-        private readonly UserManager<User> _userManager;
-        private readonly SignInManager<User> _signInManager;
+        private readonly UserManager<AppUser> _userManager;
+        private readonly SignInManager<AppUser> _signInManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IConfiguration _configuration;
 
-        public UserManagement(UserManager<User> userManager,
-            SignInManager<User> signInManager, IConfiguration configuration, RoleManager<IdentityRole> roleManager, IEmailService emailService)
+        public UManagement(UserManager<AppUser> userManager,
+            SignInManager<AppUser> signInManager, IConfiguration configuration, RoleManager<IdentityRole> roleManager, IEmailService emailService)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -35,7 +36,7 @@ namespace UMenagmentService.Service
                 return new ApiResponse<CreateUserResponse> { IsSuccess = false, StatusCode = 403, Message = "User already exists!" };
             }
 
-            User user = new()
+            AppUser user = new()
             {
                 Email = registerRequest.Email,
                 Name = registerRequest.Name,
@@ -51,7 +52,7 @@ namespace UMenagmentService.Service
                 await _roleManager.CreateAsync(new IdentityRole("Client"));
             }
 
-     
+
             var result = await _userManager.CreateAsync(user, registerRequest.Password);
 
             if (!result.Succeeded)
@@ -67,7 +68,7 @@ namespace UMenagmentService.Service
 
         }
 
-        public async Task<ApiResponse<JwtTokenResponse>> GenerateJwtTokenAsync(User user)
+        public async Task<ApiResponse<JwtTokenResponse>> GenerateJwtTokenAsync(AppUser user)
         {
             if (user != null)
             {
@@ -145,7 +146,7 @@ namespace UMenagmentService.Service
                     {
                         Response = new LoginOtpResponse()
                         {
-                            User = (User)user,
+                            User = user,
                             Token = token,
                             IsTwoFactorEnable = user.TwoFactorEnabled
                         },
@@ -161,7 +162,7 @@ namespace UMenagmentService.Service
                     {
                         Response = new LoginOtpResponse()
                         {
-                            User = (User)user,
+                            User = user,
                             Token = string.Empty,
                             IsTwoFactorEnable = user.TwoFactorEnabled
                         },
@@ -175,7 +176,7 @@ namespace UMenagmentService.Service
             {
                 return new ApiResponse<LoginOtpResponse>
                 {
-                    
+
                     IsSuccess = false,
                     StatusCode = 404,
                     Message = $"User does not exist."

@@ -1,34 +1,31 @@
-﻿using EventTracker.Models;
-using Google.Apis.Auth;
+﻿using Google.Apis.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
 using System.ComponentModel.DataAnnotations;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-using UMenagmentService.Models;
-using UMenagmentService.Models.Authentication.Login;
-using UMenagmentService.Models.Authentication.Register;
-using UMenagmentService.Service;
+using UserManagement.API.Models;
+using UserManagement.Data.Models;
+using UserManagment.Service.Models;
+using UserManagment.Service.Models.Authentication.Login;
+using UserManagment.Service.Models.Authentication.Register;
+using UserManagment.Service.Service;
 
 
-namespace EventTracker.Controllers
+namespace UserManagement.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
     public class AuthenticationController : ControllerBase
     {
-        private readonly UserManager<User> _userManager;
-        private readonly SignInManager<User> _signInManager;
+        private readonly UserManager<AppUser> _userManager;
+        private readonly SignInManager<AppUser> _signInManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IEmailService _emailService;
-        private readonly IUserManagement _user;
+        private readonly IUManagement _user;
         private readonly IConfiguration _configuration;
 
-        public AuthenticationController(UserManager<User> userManager,
-            SignInManager<User> signInManager, IConfiguration configuration, RoleManager<IdentityRole> roleManager, IEmailService emailService, IUserManagement user)
+        public AuthenticationController(UserManager<AppUser> userManager,
+            SignInManager<AppUser> signInManager, IConfiguration configuration, RoleManager<IdentityRole> roleManager, IEmailService emailService, IUManagement user)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -50,11 +47,11 @@ namespace EventTracker.Controllers
                 var message = new Message(new string[] { registerRequest.Email! }, "Confirmation email link", confirmationLink!);
                 _emailService.SendEmail(message);
 
-                return StatusCode(StatusCodes.Status200OK, new Response { Status = "Success", Message= $"User registered, please verify your email!" , IsSuccess = true });
+                return StatusCode(StatusCodes.Status200OK, new Response { Status = "Success", Message = $"User registered, please verify your email!", IsSuccess = true });
             }
 
-            return StatusCode(StatusCodes.Status500InternalServerError, new Response { Message = tokenResponse.Message, IsSuccess=false});
-           
+            return StatusCode(StatusCodes.Status500InternalServerError, new Response { Message = tokenResponse.Message, IsSuccess = false });
+
 
         }
 
@@ -116,7 +113,7 @@ namespace EventTracker.Controllers
                     return Ok(jwtResponse);
                 }
             }
-           
+
             return Unauthorized();
 
         }
@@ -129,7 +126,7 @@ namespace EventTracker.Controllers
             var signIn = await _signInManager.TwoFactorSignInAsync("Email", code, false, false);
             if (signIn.Succeeded && user != null)
             {
-                var jwtResponse = await _user.GenerateJwtTokenAsync((User)user);
+                var jwtResponse = await _user.GenerateJwtTokenAsync(user);
                 return Ok(jwtResponse);
             }
             return StatusCode(StatusCodes.Status404NotFound,
@@ -139,7 +136,7 @@ namespace EventTracker.Controllers
         [HttpPost]
         [AllowAnonymous]
         [Route("forgot-pass")]
-        public async Task<IActionResult> ForgotPassword([Required]string email)
+        public async Task<IActionResult> ForgotPassword([Required] string email)
         {
             var user = await _userManager.FindByNameAsync(email);
             if (user != null)
@@ -149,8 +146,12 @@ namespace EventTracker.Controllers
                 var message = new Message(new string[] { user.Email! }, "Forgot Password link", forgotPassLink!);
                 _emailService.SendEmail(message);
                 return StatusCode(StatusCodes.Status200OK,
-                 new Response { Status = "Success", Message = $"Password Changed link is sent to " +
-                 $"{user.Email}. Please verify" });
+                 new Response
+                 {
+                     Status = "Success",
+                     Message = $"Password Changed link is sent to " +
+                 $"{user.Email}. Please verify"
+                 });
             }
             return StatusCode(StatusCodes.Status400BadRequest,
                  new Response { Status = "Error", Message = $"Couldnt sent link. Please try again." });
@@ -160,10 +161,11 @@ namespace EventTracker.Controllers
         [HttpGet("reset-pass")]
         public async Task<IActionResult> ResetPassword(string token, string email)
         {
-            var model = new ResetPassword {Token = token, Email = email };
-           
-            return Ok( new{
-               model
+            var model = new ResetPassword { Token = token, Email = email };
+
+            return Ok(new
+            {
+                model
             });
         }
 
@@ -202,11 +204,11 @@ namespace EventTracker.Controllers
                 var user = await _userManager.FindByEmailAsync(payload.Email);
                 if (user == null)
                 {
-                    user = new User
+                    user = new AppUser
                     {
                         Email = payload.Email,
                         UserName = payload.Email,
-                        EmailConfirmed = true 
+                        EmailConfirmed = true
                     };
 
 

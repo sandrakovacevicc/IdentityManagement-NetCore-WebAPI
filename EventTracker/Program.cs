@@ -4,9 +4,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
-using UManagement.Data.Models;
-using UMenagmentService.Models;
-using UMenagmentService.Service;
+using UserManagement.Data.Models;
+using UserManagment.Service.Models;
+using UserManagment.Service.Service;
 
 var builder = WebApplication.CreateBuilder(args);
  
@@ -27,7 +27,7 @@ builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(conf
 //    .AddEntityFrameworkStores<AppDbContext>()
 //    .AddDefaultTokenProviders();
 
-builder.Services.AddIdentity<User, IdentityRole>()
+builder.Services.AddIdentity<AppUser, IdentityRole>()
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
 
@@ -65,7 +65,7 @@ var emailConfig = configuration.GetSection("EmailConfiguration").Get<EmailConfig
 builder.Services.AddSingleton(emailConfig);
 
 builder.Services.AddScoped<IEmailService, EmailService>();
-builder.Services.AddScoped<IUserManagement, UserManagement>();
+builder.Services.AddScoped<IUManagement, UManagement>();
 
 builder.Services.AddControllers();
 

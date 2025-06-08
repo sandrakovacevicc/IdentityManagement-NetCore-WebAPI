@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace UMenagmentService.Models
+namespace UserManagment.Service.Models
 {
     public class Message
     {

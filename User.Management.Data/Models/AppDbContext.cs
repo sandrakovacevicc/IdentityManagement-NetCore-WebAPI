@@ -1,11 +1,10 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using UMenagmentService.Models;
 
-namespace UManagement.Data.Models
+namespace UserManagement.Data.Models
 {
-    public class AppDbContext : IdentityDbContext<User>
+    public class AppDbContext : IdentityDbContext<AppUser>
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
@@ -23,7 +22,7 @@ namespace UManagement.Data.Models
                 new IdentityRole() { Name = "Admin", ConcurrencyStamp = "1", NormalizedName = "Admin" },
                 new IdentityRole() { Name = "Client", ConcurrencyStamp = "2", NormalizedName = "Client" }
                 );
-           
+
         }
     }
 }

@@ -21,7 +21,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\UMenagmentService\UserManagment.Service.csproj" />
-    <ProjectReference Include="..\User.Management.Data\UserManagement.Data.csproj" />
   </ItemGroup>
 
 </Project>

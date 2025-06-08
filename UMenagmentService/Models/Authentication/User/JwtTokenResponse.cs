@@ -1,5 +1,4 @@
-﻿
-namespace UMenagmentService.Models.Authentication
+﻿namespace UserManagment.Service.Models.Authentication.User
 {
     public class JwtTokenResponse
     {

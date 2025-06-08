@@ -1,5 +1,6 @@
-﻿
-namespace UMenagmentService.Models
+﻿using UserManagement.Data.Models;
+
+namespace UserManagment.Service.Models.Authentication.User
 {
     public class LoginOtpResponse
     {
@@ -7,6 +8,6 @@ namespace UMenagmentService.Models
 
         public bool IsTwoFactorEnable { get; set; }
 
-        public User User { get; set; } = null;
+        public AppUser User { get; set; } = null;
     }
 }
