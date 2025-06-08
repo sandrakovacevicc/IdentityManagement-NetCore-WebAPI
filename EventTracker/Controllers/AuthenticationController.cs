@@ -20,15 +20,15 @@ namespace EventTracker.Controllers
     [ApiController]
     public class AuthenticationController : ControllerBase
     {
-        private readonly UserManager<IdentityUser> _userManager;
-        private readonly SignInManager<IdentityUser> _signInManager;
+        private readonly UserManager<User> _userManager;
+        private readonly SignInManager<User> _signInManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IEmailService _emailService;
         private readonly IUserManagement _user;
         private readonly IConfiguration _configuration;
 
-        public AuthenticationController(UserManager<IdentityUser> userManager,
-            SignInManager<IdentityUser> signInManager, IConfiguration configuration, RoleManager<IdentityRole> roleManager, IEmailService emailService, IUserManagement user)
+        public AuthenticationController(UserManager<User> userManager,
+            SignInManager<User> signInManager, IConfiguration configuration, RoleManager<IdentityRole> roleManager, IEmailService emailService, IUserManagement user)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -92,43 +92,31 @@ namespace EventTracker.Controllers
         [Route("login")]
         public async Task<IActionResult> Login([FromBody] LoginUser loginUser)
         {
-            var user = await _userManager.FindByEmailAsync(loginUser.Email);
-            if (user.TwoFactorEnabled)
+
+            var loginOtpResponse = await _user.GetOtpByLoginAsync(loginUser);
+
+            if (loginOtpResponse.Response != null)
             {
-                await _signInManager.SignOutAsync();
-                await _signInManager.PasswordSignInAsync(user, loginUser.Password, false, true);
-                var token = await _userManager.GenerateTwoFactorTokenAsync(user, "Email");
+                var user = loginOtpResponse.Response.User;
 
-                var message = new Message(new string[] { user.Email! }, "OTP Confrimation", token);
-                _emailService.SendEmail(message);
-
-                return StatusCode(StatusCodes.Status200OK,
-                 new Response { Status = "Success", Message = $"We have sent an OTP to your Email {user.Email}" });
-            }
-
-            if (user != null && await _userManager.CheckPasswordAsync(user, loginUser.Password))
-            {
-                var authClaims = new List<Claim>
+                if (user.TwoFactorEnabled)
                 {
-                    new Claim(ClaimTypes.Name, user.UserName),
-                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                };
-                var userRoles = await _userManager.GetRolesAsync(user);
-                foreach (var role in userRoles)
-                {
-                    authClaims.Add(new Claim(ClaimTypes.Role, role));
+                    var token = loginOtpResponse.Response.Token;
+                    var message = new Message(new string[] { user.Email! }, "OTP Confrimation", token);
+                    _emailService.SendEmail(message);
+
+                    return StatusCode(StatusCodes.Status200OK,
+                     new Response { IsSuccess = loginOtpResponse.IsSuccess, Status = "Success", Message = $"We have sent an OTP to your Email {user.Email}" });
                 }
 
-
-                var jwtToken = GetToken(authClaims);
-
-                return Ok(new
+                if (user != null && await _userManager.CheckPasswordAsync(user, loginUser.Password))
                 {
-                    token = new JwtSecurityTokenHandler().WriteToken(jwtToken),
-                    expiration = jwtToken.ValidTo
-                });
+                    var jwtResponse = await _user.GenerateJwtTokenAsync(user);
 
+                    return Ok(jwtResponse);
+                }
             }
+           
             return Unauthorized();
 
         }
@@ -139,30 +127,10 @@ namespace EventTracker.Controllers
         {
             var user = await _userManager.FindByNameAsync(username);
             var signIn = await _signInManager.TwoFactorSignInAsync("Email", code, false, false);
-            if (signIn.Succeeded)
+            if (signIn.Succeeded && user != null)
             {
-                if (user != null)
-                {
-                    var authClaims = new List<Claim>
-                {
-                    new Claim(ClaimTypes.Name, user.UserName),
-                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                };
-                    var userRoles = await _userManager.GetRolesAsync(user);
-                    foreach (var role in userRoles)
-                    {
-                        authClaims.Add(new Claim(ClaimTypes.Role, role));
-                    }
-
-                    var jwtToken = GetToken(authClaims);
-
-                    return Ok(new
-                    {
-                        token = new JwtSecurityTokenHandler().WriteToken(jwtToken),
-                        expiration = jwtToken.ValidTo
-                    });
-
-                }
+                var jwtResponse = await _user.GenerateJwtTokenAsync((User)user);
+                return Ok(jwtResponse);
             }
             return StatusCode(StatusCodes.Status404NotFound,
                 new Response { Status = "Success", Message = $"Invalid Code" });
@@ -234,7 +202,7 @@ namespace EventTracker.Controllers
                 var user = await _userManager.FindByEmailAsync(payload.Email);
                 if (user == null)
                 {
-                    user = new IdentityUser
+                    user = new User
                     {
                         Email = payload.Email,
                         UserName = payload.Email,
@@ -254,27 +222,14 @@ namespace EventTracker.Controllers
                     }
                 }
 
-                var authClaims = new List<Claim>
-                {
-                    new Claim(ClaimTypes.Name, user.UserName),
-                    new Claim(ClaimTypes.Email, user.Email),
-                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-                };
+                var tokenResponse = await _user.GenerateJwtTokenAsync(user);
 
-                var roles = await _userManager.GetRolesAsync(user);
-                foreach (var role in roles)
+                if (!tokenResponse.IsSuccess)
                 {
-                    authClaims.Add(new Claim(ClaimTypes.Role, role));
-
+                    return BadRequest(new { message = tokenResponse.Message });
                 }
 
-                var token = GetToken(authClaims);
-
-                return Ok(new
-                {
-                    token = new JwtSecurityTokenHandler().WriteToken(token),
-                    expiration = token.ValidTo
-                });
+                return Ok(tokenResponse);
             }
             catch (Exception ex)
             {
@@ -282,23 +237,7 @@ namespace EventTracker.Controllers
             }
         }
 
-        private JwtSecurityToken GetToken(List<Claim> authClaims)
-        {
-            var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JWT:Secret"]));
-
-            var token = new JwtSecurityToken(
-                issuer: _configuration["JWT:ValidIssuer"],
-                audience: _configuration["JWT:ValidAudience"],
-                expires: DateTime.Now.AddDays(2),
-                claims: authClaims,
-                signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
-                );
-
-            return token;
-        }
-
     }
-
 
 }
 

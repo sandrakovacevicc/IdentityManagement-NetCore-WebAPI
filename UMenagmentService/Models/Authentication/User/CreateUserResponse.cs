@@ -1,4 +1,4 @@
-﻿namespace UMenagmentService.Models.Authentication.UserResponses
+﻿namespace UMenagmentService.Models
 {
     public class CreateUserResponse
     {
