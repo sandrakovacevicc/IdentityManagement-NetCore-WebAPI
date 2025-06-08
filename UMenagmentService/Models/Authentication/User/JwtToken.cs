@@ -1,8 +1,8 @@
 ﻿namespace UserManagment.Service.Models.Authentication.User
 {
-    public class JwtTokenResponse
+    public class JwtToken
     {
         public string Token { get; set; } = null;
-        public DateTime Expiration { get; set; }
+        public DateTime ExpiryTokenDate { get; set; }
     }
 }

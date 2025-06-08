@@ -18,18 +18,13 @@ namespace UserManagement.API.Controllers
     public class AuthenticationController : ControllerBase
     {
         private readonly UserManager<AppUser> _userManager;
-        private readonly SignInManager<AppUser> _signInManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IEmailService _emailService;
         private readonly IUManagement _user;
-        private readonly IConfiguration _configuration;
 
-        public AuthenticationController(UserManager<AppUser> userManager,
-            SignInManager<AppUser> signInManager, IConfiguration configuration, RoleManager<IdentityRole> roleManager, IEmailService emailService, IUManagement user)
+        public AuthenticationController(UserManager<AppUser> userManager, RoleManager<IdentityRole> roleManager, IEmailService emailService, IUManagement user)
         {
             _userManager = userManager;
-            _signInManager = signInManager;
-            _configuration = configuration;
             _roleManager = roleManager;
             _emailService = emailService;
             _user = user;
@@ -108,7 +103,7 @@ namespace UserManagement.API.Controllers
 
                 if (user != null && await _userManager.CheckPasswordAsync(user, loginUser.Password))
                 {
-                    var jwtResponse = await _user.GenerateJwtTokenAsync(user);
+                    var jwtResponse = await _user.GetJwtTokenAsync(user);
 
                     return Ok(jwtResponse);
                 }
@@ -122,15 +117,14 @@ namespace UserManagement.API.Controllers
         [Route("login-2FA")]
         public async Task<IActionResult> LoginWithOTP(string code, string username)
         {
-            var user = await _userManager.FindByNameAsync(username);
-            var signIn = await _signInManager.TwoFactorSignInAsync("Email", code, false, false);
-            if (signIn.Succeeded && user != null)
+            var jwt = await _user.LoginUserWithJWTTokenAsync(code, username);
+
+            if (jwt.IsSuccess)
             {
-                var jwtResponse = await _user.GenerateJwtTokenAsync(user);
-                return Ok(jwtResponse);
+                return Ok(jwt);
             }
             return StatusCode(StatusCodes.Status404NotFound,
-                new Response { Status = "Unsuccessfu", Message = $"Invalid Code" });
+                new Response { Status = "Unsuccessfu", Message = "Invalid Code" });
         }
 
         [HttpPost]
@@ -224,7 +218,7 @@ namespace UserManagement.API.Controllers
                     }
                 }
 
-                var tokenResponse = await _user.GenerateJwtTokenAsync(user);
+                var tokenResponse = await _user.GetJwtTokenAsync(user);
 
                 if (!tokenResponse.IsSuccess)
                 {
