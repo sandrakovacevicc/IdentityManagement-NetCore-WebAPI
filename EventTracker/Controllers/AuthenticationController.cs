@@ -1,4 +1,5 @@
 ﻿using EventTracker.Models;
+using Google.Apis.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -223,7 +224,63 @@ namespace EventTracker.Controllers
                      new Response { Status = "Error", Message = $"Couldnt sent link. Please try again." });
         }
 
+        [HttpPost("google-login")]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLogin request)
+        {
+            try
+            {
+                var payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken);
 
+                var user = await _userManager.FindByEmailAsync(payload.Email);
+                if (user == null)
+                {
+                    user = new IdentityUser
+                    {
+                        Email = payload.Email,
+                        UserName = payload.Email,
+                        EmailConfirmed = true 
+                    };
+
+
+                    var result = await _userManager.CreateAsync(user);
+                    if (!result.Succeeded)
+                    {
+                        return BadRequest(new { message = "Failed to create user", errors = result.Errors });
+                    }
+
+                    if (!await _roleManager.RoleExistsAsync("Client"))
+                    {
+                        await _roleManager.CreateAsync(new IdentityRole("Client"));
+                    }
+                }
+
+                var authClaims = new List<Claim>
+                {
+                    new Claim(ClaimTypes.Name, user.UserName),
+                    new Claim(ClaimTypes.Email, user.Email),
+                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                };
+
+                var roles = await _userManager.GetRolesAsync(user);
+                foreach (var role in roles)
+                {
+                    authClaims.Add(new Claim(ClaimTypes.Role, role));
+
+                }
+
+                var token = GetToken(authClaims);
+
+                return Ok(new
+                {
+                    token = new JwtSecurityTokenHandler().WriteToken(token),
+                    expiration = token.ValidTo
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = "Invalid Google token", detail = ex.Message });
+            }
+        }
 
         private JwtSecurityToken GetToken(List<Claim> authClaims)
         {
