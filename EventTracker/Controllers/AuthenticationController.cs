@@ -133,7 +133,7 @@ namespace EventTracker.Controllers
                 return Ok(jwtResponse);
             }
             return StatusCode(StatusCodes.Status404NotFound,
-                new Response { Status = "Success", Message = $"Invalid Code" });
+                new Response { Status = "Unsuccessfu", Message = $"Invalid Code" });
         }
 
         [HttpPost]

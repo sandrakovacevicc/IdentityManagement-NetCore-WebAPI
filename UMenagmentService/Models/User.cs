@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
 
-
 namespace UMenagmentService.Models
 {
     public class User : IdentityUser

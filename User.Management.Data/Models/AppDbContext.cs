@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using UMenagmentService.Models;
 
-namespace EventTracker.Models.Data
+namespace UManagement.Data.Models
 {
     public class AppDbContext : IdentityDbContext<User>
     {
@@ -14,8 +14,6 @@ namespace EventTracker.Models.Data
         {
             base.OnModelCreating(builder);
             SeedRoles(builder);
-
-
         }
 
         private static void SeedRoles(ModelBuilder builder)
