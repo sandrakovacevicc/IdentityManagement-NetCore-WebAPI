@@ -8,6 +8,7 @@ using UserManagement.Data.Models;
 using UserManagment.Service.Models;
 using UserManagment.Service.Models.Authentication.Login;
 using UserManagment.Service.Models.Authentication.Register;
+using UserManagment.Service.Models.Authentication.User;
 using UserManagment.Service.Service;
 
 
@@ -34,33 +35,23 @@ namespace UserManagement.API.Controllers
         [Route("register")]
         public async Task<IActionResult> Register([FromBody] RegisterUser registerRequest)
         {
-
             var tokenResponse = await _user.CreateUserWithTokenAsync(registerRequest);
             if (tokenResponse.IsSuccess)
             {
                 var confirmationLink = Url.Action(nameof(ConfirmEmail), "Authentication", new { tokenResponse.Response.Token, email = registerRequest.Email }, Request.Scheme);
                 var message = new Message(new string[] { registerRequest.Email! }, "Confirmation email link", confirmationLink!);
                 _emailService.SendEmail(message);
-
-                return StatusCode(StatusCodes.Status200OK, new Response { Status = "Success", Message = $"User registered, please verify your email!", IsSuccess = true });
             }
 
-            return StatusCode(StatusCodes.Status500InternalServerError, new Response { Message = tokenResponse.Message, IsSuccess = false });
-
-
+            return StatusCode(
+                tokenResponse.StatusCode,
+                new Response
+                {
+                    Message = tokenResponse.Message,
+                    IsSuccess = tokenResponse.IsSuccess
+                }
+            );
         }
-
-        //[HttpGet]
-        //public IActionResult TestEmail()
-        //{
-        //    var mess = new Message(new string[] { "kovacevicsof@gmail.com" }, "Uspeh", "Uspela sam");
-        //    _emailService.SendEmail(mess);
-        //    return StatusCode(StatusCodes.Status200OK, new Response
-        //    {
-        //        Status = "Success", Message = "Email sent successfully"
-        //    });
-
-        //}
 
         [HttpGet("confirm-email")]
         public async Task<IActionResult> ConfirmEmail(string token, string email)
@@ -71,47 +62,68 @@ namespace UserManagement.API.Controllers
                 var result = await _userManager.ConfirmEmailAsync(user, token);
                 if (result.Succeeded)
                 {
-                    return StatusCode(StatusCodes.Status200OK,
-                      new Response { Status = "Success", Message = "Email Verified Successfully" });
+                    return StatusCode(
+                        StatusCodes.Status200OK,
+                        new Response { 
+                            Message = "Email Verified Successfully",
+                            IsSuccess = true
+                        }
+                    );
                 }
             }
-            return StatusCode(StatusCodes.Status500InternalServerError,
-                       new Response { Status = "Error", Message = "This User Doesnt exist!" });
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new Response { 
+                    Message = "This User doesn't exist!",
+                    IsSuccess= false
+                });
         }
 
 
         [HttpPost]
         [Route("login")]
-        public async Task<IActionResult> Login([FromBody] LoginUser loginUser)
+        public async Task<IActionResult> Login([FromBody] LoginUser loginModel)
         {
+            var loginOtpResponse = await _user.GetOtpByLoginAsync(loginModel);
 
-            var loginOtpResponse = await _user.GetOtpByLoginAsync(loginUser);
-
-            if (loginOtpResponse.Response != null)
+            if (!loginOtpResponse.IsSuccess || loginOtpResponse.Response == null)
             {
-                var user = loginOtpResponse.Response.User;
-
-                if (user.TwoFactorEnabled)
-                {
-                    var token = loginOtpResponse.Response.Token;
-                    var message = new Message(new string[] { user.Email! }, "OTP Confrimation", token);
-                    _emailService.SendEmail(message);
-
-                    return StatusCode(StatusCodes.Status200OK,
-                     new Response { IsSuccess = loginOtpResponse.IsSuccess, Status = "Success", Message = $"We have sent an OTP to your Email {user.Email}" });
-                }
-
-                if (user != null && await _userManager.CheckPasswordAsync(user, loginUser.Password))
-                {
-                    var jwtResponse = await _user.GetJwtTokenAsync(user);
-
-                    return Ok(jwtResponse);
-                }
+                return StatusCode(
+                    loginOtpResponse.StatusCode, 
+                    new Response {
+                        IsSuccess = loginOtpResponse.IsSuccess,
+                        Message = loginOtpResponse.Message
+                    }
+                );
             }
 
-            return Unauthorized();
+            var user = loginOtpResponse.Response.User;
+            var token = loginOtpResponse.Response.Token;
 
+            if (!user.EmailConfirmed)
+            {
+                return Unauthorized(
+                    new Response
+                    {
+                        IsSuccess = false,
+                        Message = "Please confirm your email adress before login"
+                    }
+                );
+            }
+
+            var message = new Message(new string[] { user.Email! }, "OTP Confirmation", token);
+            _emailService.SendEmail(message);
+
+            return StatusCode(
+                loginOtpResponse.StatusCode,
+                new Response
+                {
+                    IsSuccess = loginOtpResponse.IsSuccess,
+                    Message = loginOtpResponse.Message,
+                }
+            );
         }
+
 
         [HttpPost]
         [Route("login-2FA")]
@@ -123,8 +135,30 @@ namespace UserManagement.API.Controllers
             {
                 return Ok(jwt);
             }
-            return StatusCode(StatusCodes.Status404NotFound,
-                new Response { Status = "Unsuccessfu", Message = "Invalid Code" });
+            return StatusCode(
+                jwt.StatusCode,
+                new Response { 
+                    IsSuccess= jwt.IsSuccess,
+                    Message = jwt.Message
+                }
+            );
+        }
+
+        [HttpPost]
+        [Route("refresh-token")]
+        public async Task<IActionResult> RefreshToken(LoginResponse tokens)
+        {
+            var jwt = await _user.RenewAccessTokenAsync(tokens);
+            if (jwt.IsSuccess)
+            {
+                return Ok(jwt);
+            }
+            return StatusCode(jwt.StatusCode,
+                new Response { 
+                    IsSuccess= true, 
+                    Message = $"Invalid Code" 
+                }
+            );
         }
 
         [HttpPost]
@@ -139,16 +173,22 @@ namespace UserManagement.API.Controllers
                 var forgotPassLink = Url.Action("ResetPassword", "Authentication", new { token, email = user.Email }, Request.Scheme);
                 var message = new Message(new string[] { user.Email! }, "Forgot Password link", forgotPassLink!);
                 _emailService.SendEmail(message);
+                
                 return StatusCode(StatusCodes.Status200OK,
-                 new Response
-                 {
-                     Status = "Success",
-                     Message = $"Password Changed link is sent to " +
-                 $"{user.Email}. Please verify"
-                 });
+                    new Response
+                    {
+                        Message = $"Password Changed link is sent to {user.Email}. Please verify",
+                        IsSuccess = true
+                    }
+                );
             }
             return StatusCode(StatusCodes.Status400BadRequest,
-                 new Response { Status = "Error", Message = $"Couldnt sent link. Please try again." });
+                 new Response 
+                 { 
+                     Message = $"Couldnt sent link. Please try again." , 
+                     IsSuccess=false
+                 }
+            );
 
         }
 
@@ -174,21 +214,20 @@ namespace UserManagement.API.Controllers
                 var resetPass = await _userManager.ResetPasswordAsync(user, resetPassword.Token, resetPassword.Password);
                 if (!resetPass.Succeeded)
                 {
-                    foreach (var error in resetPass.Errors)
-                    {
-                        ModelState.AddModelError(error.Code, error.Description);
-                    }
-                    return Ok(ModelState);
+                    var errors = resetPass.Errors.Select(e => e.Description).ToList();
+                    return BadRequest(new { Errors = errors });
                 }
                 return StatusCode(StatusCodes.Status200OK,
-                     new Response { Status = "Success", Message = "Password has been changed!" });
+                     new Response { IsSuccess= true, Message = "Password has been changed!" });
 
             }
             return StatusCode(StatusCodes.Status400BadRequest,
-                     new Response { Status = "Error", Message = $"Couldnt sent link. Please try again." });
+                     new Response { IsSuccess= false, Message = $"Couldn't sent link. Please try again." });
         }
 
-        [HttpPost("google-login")]
+        [HttpPost]
+        [AllowAnonymous]
+        [Route("google-login")]
         public async Task<IActionResult> GoogleLogin([FromBody] GoogleLogin request)
         {
             try

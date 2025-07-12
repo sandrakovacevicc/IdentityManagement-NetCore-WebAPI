@@ -6,8 +6,7 @@ namespace UserManagement.Data.Models
     {
         public string? Name { get; set; }
         public string? Surname { get; set; }
-
-        public string RefreshToken { get; set; }
+        public string? RefreshToken { get; set; }
         public DateTime RefreshTokenExpiry { get; set; }
     }
 }

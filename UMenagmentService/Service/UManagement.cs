@@ -31,10 +31,14 @@ namespace UserManagment.Service.Service
         public async Task<ApiResponse<CreateUserResponse>> CreateUserWithTokenAsync(RegisterUser registerRequest)
         {
 
-            var userExist = await _userManager.FindByEmailAsync(registerRequest.Email);
+            var userExist = await _userManager.FindByEmailAsync(registerRequest.Email.ToLower());
             if (userExist != null)
             {
-                return new ApiResponse<CreateUserResponse> { IsSuccess = false, StatusCode = 403, Message = "User already exists!" };
+                return new ApiResponse<CreateUserResponse> { 
+                    IsSuccess = false, 
+                    StatusCode = 403, 
+                    Message = "User already exists!" 
+                };
             }
 
             AppUser user = new()
@@ -53,78 +57,73 @@ namespace UserManagment.Service.Service
                 await _roleManager.CreateAsync(new IdentityRole("Client"));
             }
 
-
             var result = await _userManager.CreateAsync(user, registerRequest.Password);
 
             if (!result.Succeeded)
             {
-                return new ApiResponse<CreateUserResponse> { IsSuccess = false, StatusCode = 500, Message = "User failed to register." };
+                return new ApiResponse<CreateUserResponse> { 
+                    IsSuccess = false, 
+                    StatusCode = 500, 
+                    Message = "User failed to register." 
+                };
             }
 
             await _userManager.AddToRoleAsync(user, "Client");
 
             var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
 
-            return new ApiResponse<CreateUserResponse> { Response = new CreateUserResponse() { User = user, Token = token }, IsSuccess = true, StatusCode = 201, Message = $"User registered & Email Sent to {user.Email} successfully! Please login!" };
-
+            return new ApiResponse<CreateUserResponse> { 
+                Response = new CreateUserResponse() { 
+                    User = user, 
+                    Token = token 
+                }, 
+                IsSuccess = true, 
+                StatusCode = 201, 
+                Message = $"User registered & Email Sent to {user.Email} successfully! Please login!" 
+            };
         }
 
         public async Task<ApiResponse<LoginOtpResponse>> GetOtpByLoginAsync(LoginUser loginUser)
         {
-            var user = await _userManager.FindByEmailAsync(loginUser.Email);
+            var user = await _userManager.FindByNameAsync(loginUser.Email);
 
-            if (user != null)
-            {
-                await _signInManager.SignOutAsync();
-                await _signInManager.PasswordSignInAsync(user, loginUser.Password, false, true);
-
-                if (user.TwoFactorEnabled)
-                {
-
-                    var token = await _userManager.GenerateTwoFactorTokenAsync(user, "Email");
-
-                    return new ApiResponse<LoginOtpResponse>
-                    {
-                        Response = new LoginOtpResponse()
-                        {
-                            User = user,
-                            Token = token,
-                            IsTwoFactorEnable = user.TwoFactorEnabled
-                        },
-                        IsSuccess = true,
-                        StatusCode = 201,
-                        Message = $"We have sent an OTP to your Email {user.Email}"
-                    };
-
-                }
-                else
-                {
-                    return new ApiResponse<LoginOtpResponse>
-                    {
-                        Response = new LoginOtpResponse()
-                        {
-                            User = user,
-                            Token = string.Empty,
-                            IsTwoFactorEnable = user.TwoFactorEnabled
-                        },
-                        IsSuccess = true,
-                        StatusCode = 200,
-                        Message = $"2FA is not enabled {user.Email}"
-                    };
-                }
-            }
-            else
+            if (user == null || !await _userManager.CheckPasswordAsync(user, loginUser.Password))
             {
                 return new ApiResponse<LoginOtpResponse>
                 {
                     IsSuccess = false,
-                    StatusCode = 404,
-                    Message = $"User does not exist."
+                    StatusCode = 401,
+                    Message = "Invalid credentials."
                 };
             }
+
+            if (!user.TwoFactorEnabled)
+            {
+                return new ApiResponse<LoginOtpResponse>
+                {
+                    IsSuccess = false,
+                    StatusCode = 400,
+                    Message = "Two-factor authentication is not enabled for this account."
+                };
+            }
+
+            var token = await _userManager.GenerateTwoFactorTokenAsync(user, "Email");
+
+            return new ApiResponse<LoginOtpResponse>
+            {
+                Response = new LoginOtpResponse
+                {
+                    User = user,
+                    Token = token,
+                    IsTwoFactorEnable = true
+                },
+                IsSuccess = true,
+                StatusCode = 200,
+                Message = $"We have sent an OTP to your Email {user.Email}"
+            };
         }
-   
-        public async Task<ApiResponse<JwtToken>> GetJwtTokenAsync(AppUser user)
+
+        public async Task<ApiResponse<LoginResponse>> GetJwtTokenAsync(AppUser user)
         {
             
             var authClaims = new List<Claim>
@@ -150,12 +149,20 @@ namespace UserManagment.Service.Service
 
             await _userManager.UpdateAsync(user);
 
-            return new ApiResponse<JwtToken>
+            return new ApiResponse<LoginResponse>
             {
-                Response = new JwtToken()
+                Response = new LoginResponse()
                 {
-                    Token = new JwtSecurityTokenHandler().WriteToken(jwtToken),
-                    ExpiryTokenDate = jwtToken.ValidTo
+                    AccessToken = new TokenType()
+                    {
+                        Token = new JwtSecurityTokenHandler().WriteToken(jwtToken),
+                        ExpiryTokenDate = jwtToken.ValidTo
+                    },
+                    RefreshToken = new TokenType()
+                    {
+                        Token = user.RefreshToken,
+                        ExpiryTokenDate = user.RefreshTokenExpiry
+                    }
                 },
                 IsSuccess = true,
                 StatusCode = 200,
@@ -163,29 +170,54 @@ namespace UserManagment.Service.Service
             };
         }
 
-        public async Task<ApiResponse<JwtToken>> LoginUserWithJWTTokenAsync(string otp, string userName)
+        public async Task<ApiResponse<LoginResponse>> LoginUserWithJWTTokenAsync(string otp, string userName)
         {
             var user = await _userManager.FindByEmailAsync(userName);
-            var signIn = await _signInManager.TwoFactorSignInAsync("Email", otp, false, false);
 
-            if (signIn.Succeeded)
+            if (user == null || !await _userManager.GetTwoFactorEnabledAsync(user))
             {
-                if (user != null)
+                return new ApiResponse<LoginResponse>
                 {
-                    return await GetJwtTokenAsync(user);
-                }
-
+                    IsSuccess = false,
+                    StatusCode = 404,
+                    Message = "User not found or 2FA not enabled"
+                };
             }
-     
-            return new ApiResponse<JwtToken>
+
+            var isTokenValid = await _userManager.VerifyTwoFactorTokenAsync(user, "Email", otp);
+
+            if (isTokenValid)
+            {
+                return await GetJwtTokenAsync(user);
+            }
+
+            return new ApiResponse<LoginResponse>
             {
                 IsSuccess = false,
                 StatusCode = 404,
-                Message = "Invalid Otp"
+                Message = "Invalid OTP"
             };
-
         }
 
+        public async Task<ApiResponse<LoginResponse>> RenewAccessTokenAsync(LoginResponse tokens)
+        {
+            var accessToken = tokens.AccessToken;
+            var refreshToken = tokens.RefreshToken;
+            var principal = GetClaimsPrincipal(accessToken.Token);
+            var user = await _userManager.FindByNameAsync(principal.Identity.Name);
+
+            if (refreshToken.Token != user.RefreshToken && refreshToken.ExpiryTokenDate <= DateTime.Now)
+            {
+                return new ApiResponse<LoginResponse>
+                {
+                    IsSuccess = false,
+                    StatusCode = 400,
+                    Message = $"Token invalid or expired"
+                };
+            }
+            var response = await GetJwtTokenAsync(user);
+            return response;
+        }
         #region PrivateMethods
         private JwtSecurityToken GetToken(List<Claim> authClaims)
         {
@@ -216,6 +248,22 @@ namespace UserManagment.Service.Service
             return Convert.ToBase64String(randomNumber);
         }
 
+        private ClaimsPrincipal GetClaimsPrincipal(string accessToken)
+        {
+            var tokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateAudience = false,
+                ValidateIssuer = false,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JWT:Secret"])),
+                ValidateLifetime = false
+            };
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var principal = tokenHandler.ValidateToken(accessToken, tokenValidationParameters, out SecurityToken securityToken);
+
+            return principal;
+        }
         #endregion
     }
 }

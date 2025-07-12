@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using UserManagement.Data.Models;
 
@@ -11,9 +12,11 @@ using UserManagement.Data.Models;
 namespace UserManagement.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250712112101_RefreshTokenCanBeNull")]
+    partial class RefreshTokenCanBeNull
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -51,14 +54,14 @@ namespace UserManagement.Data.Migrations
                     b.HasData(
                         new
                         {
-                            Id = "c2e71ad6-3935-473b-b262-9283aab9ef9c",
+                            Id = "695ff1d8-f64c-4640-9535-c0cdd6684e36",
                             ConcurrencyStamp = "1",
                             Name = "Admin",
                             NormalizedName = "Admin"
                         },
                         new
                         {
-                            Id = "5f1c04c0-6421-437e-8896-28965225dea5",
+                            Id = "ed4b3ab7-d297-495c-a48e-169c700530e9",
                             ConcurrencyStamp = "2",
                             Name = "Client",
                             NormalizedName = "Client"

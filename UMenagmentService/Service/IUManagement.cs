@@ -10,10 +10,12 @@ namespace UserManagment.Service.Service
     {
         Task<ApiResponse<CreateUserResponse>> CreateUserWithTokenAsync(RegisterUser registerRequest);
 
-        Task<ApiResponse<JwtToken>> LoginUserWithJWTTokenAsync(string otp, string userName);
+        Task<ApiResponse<LoginResponse>> LoginUserWithJWTTokenAsync(string otp, string userName);
 
         Task<ApiResponse<LoginOtpResponse>> GetOtpByLoginAsync(LoginUser user);
 
-        Task<ApiResponse<JwtToken>> GetJwtTokenAsync(AppUser user);
+        Task<ApiResponse<LoginResponse>> GetJwtTokenAsync(AppUser user);
+
+        Task<ApiResponse<LoginResponse>> RenewAccessTokenAsync(LoginResponse tokens);
     }
 }
