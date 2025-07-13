@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
+using System.IdentityModel.Tokens.Jwt;
 using UserManagement.API.Models;
 using UserManagement.Data.Models;
 using UserManagment.Service.Models;
@@ -271,6 +272,27 @@ namespace UserManagement.API.Controllers
                 return BadRequest(new { message = "Invalid Google token", detail = ex.Message });
             }
         }
+
+        [HttpPost("logout")]
+        [Authorize]
+        public async Task<IActionResult> Logout([FromServices] ITokenBlacklistService blacklistService)
+        {
+            var token = Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+
+            var handler = new JwtSecurityTokenHandler();
+            var jwtToken = handler.ReadJwtToken(token);
+            var expUnix = long.Parse(jwtToken.Claims.First(c => c.Type == "exp").Value);
+            var expiry = DateTimeOffset.FromUnixTimeSeconds(expUnix) - DateTimeOffset.UtcNow;
+
+            await blacklistService.BlacklistTokenAsync(token, expiry);
+
+            return Ok(new Response
+            {
+                IsSuccess = true,
+                Message = "Token successfully revoked."
+            });
+        }
+
 
     }
 
