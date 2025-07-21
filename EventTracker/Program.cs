@@ -28,7 +28,16 @@ builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(conf
 //    .AddEntityFrameworkStores<AppDbContext>()
 //    .AddDefaultTokenProviders();
 
-builder.Services.AddIdentity<AppUser, IdentityRole>()
+builder.Services.AddIdentity<AppUser, IdentityRole>
+    (options =>
+    {
+        options.Password.RequireDigit = true;
+        options.Password.RequireLowercase = true;
+        options.Password.RequireNonAlphanumeric = true;
+        options.Password.RequireUppercase = true;
+        options.Password.RequiredLength = 3;
+        options.Password.RequiredUniqueChars = 1;
+    })
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
 

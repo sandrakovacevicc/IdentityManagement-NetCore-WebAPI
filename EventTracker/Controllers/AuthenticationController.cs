@@ -245,7 +245,6 @@ namespace UserManagement.API.Controllers
                         EmailConfirmed = true
                     };
 
-
                     var result = await _userManager.CreateAsync(user);
                     if (!result.Succeeded)
                     {
@@ -255,6 +254,12 @@ namespace UserManagement.API.Controllers
                     if (!await _roleManager.RoleExistsAsync("Client"))
                     {
                         await _roleManager.CreateAsync(new IdentityRole("Client"));
+                    }
+
+                    var roleResult = await _userManager.AddToRoleAsync(user, "Client");
+                    if (!roleResult.Succeeded)
+                    {
+                        return BadRequest(new { message = "Failed to assign role", errors = roleResult.Errors });
                     }
                 }
 
@@ -272,6 +277,7 @@ namespace UserManagement.API.Controllers
                 return BadRequest(new { message = "Invalid Google token", detail = ex.Message });
             }
         }
+
 
         [HttpPost("logout")]
         [Authorize]

@@ -20,7 +20,7 @@ namespace UserManagment.Service.Models.Authentication.Register
         [Required(ErrorMessage = "PhoneNumber is required")]
         public string? PhoneNumber { get; set; }
 
-        public string[] Roles { get; set; }
+        public string Role { get; set; }
     }
 }
 

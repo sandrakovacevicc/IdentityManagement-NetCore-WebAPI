@@ -30,14 +30,14 @@ namespace UserManagment.Service.Service
         }
         public async Task<ApiResponse<CreateUserResponse>> CreateUserWithTokenAsync(RegisterUser registerRequest)
         {
-
             var userExist = await _userManager.FindByEmailAsync(registerRequest.Email.ToLower());
             if (userExist != null)
             {
-                return new ApiResponse<CreateUserResponse> { 
-                    IsSuccess = false, 
-                    StatusCode = 403, 
-                    Message = "User already exists!" 
+                return new ApiResponse<CreateUserResponse>
+                {
+                    IsSuccess = false,
+                    StatusCode = 403,
+                    Message = "User already exists!"
                 };
             }
 
@@ -52,36 +52,45 @@ namespace UserManagment.Service.Service
                 SecurityStamp = Guid.NewGuid().ToString(),
             };
 
-            if (!await _roleManager.RoleExistsAsync("Client"))
+            if (!await _roleManager.RoleExistsAsync(registerRequest.Role))
             {
-                await _roleManager.CreateAsync(new IdentityRole("Client"));
+                return new ApiResponse<CreateUserResponse>
+                {
+                    IsSuccess = false,
+                    StatusCode = 400,
+                    Message = "Role doesn't exist!"
+                };
             }
 
             var result = await _userManager.CreateAsync(user, registerRequest.Password);
 
             if (!result.Succeeded)
             {
-                return new ApiResponse<CreateUserResponse> { 
-                    IsSuccess = false, 
-                    StatusCode = 500, 
-                    Message = "User failed to register." 
+                return new ApiResponse<CreateUserResponse>
+                {
+                    IsSuccess = false,
+                    StatusCode = 500,
+                    Message = "User failed to register."
                 };
             }
 
-            await _userManager.AddToRoleAsync(user, "Client");
+            await _userManager.AddToRoleAsync(user, registerRequest.Role);
 
             var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
 
-            return new ApiResponse<CreateUserResponse> { 
-                Response = new CreateUserResponse() { 
-                    User = user, 
-                    Token = token 
-                }, 
-                IsSuccess = true, 
-                StatusCode = 201, 
-                Message = $"User registered & Email Sent to {user.Email} successfully! Please login!" 
+            return new ApiResponse<CreateUserResponse>
+            {
+                Response = new CreateUserResponse()
+                {
+                    User = user,
+                    Token = token
+                },
+                IsSuccess = true,
+                StatusCode = 201,
+                Message = $"User registered & Email Sent to {user.Email} successfully! Please login!"
             };
         }
+
 
         public async Task<ApiResponse<LoginOtpResponse>> GetOtpByLoginAsync(LoginUser loginUser)
         {
